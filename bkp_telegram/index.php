@@ -432,33 +432,70 @@ SCRIPT;
                 }
             }
 
-            if (isset($_POST['schedule_script'])) {
-                $scheduleTime = isset($_POST['schedule_time']) ? clean_input($_POST['schedule_time']) : '';
+//------------------------------------------------------------------------------------------//
+if (isset($_POST['schedule_script'])) {
+    $scheduleTime = isset($_POST['schedule_time']) ? clean_input($_POST['schedule_time']) : '';
 
-                if (!empty($scheduleTime)) {
-                    list($hour, $minute) = explode(':', $scheduleTime);
+    if (!empty($scheduleTime)) {
+        // Validação do formato do horário (HH:mm)
+        if (preg_match('/^([01]?[0-9]|2[0-3]):([0-5][0-9])$/', $scheduleTime)) {
+            list($hour, $minute) = explode(':', $scheduleTime);
 
-                    $cronJob = "$minute $hour * * * /opt/mk-auth/dados/bkp_telegram/script.sh >/dev/null 2>&1";
-                    $output = shell_exec("echo '$cronJob' | crontab -");
-                    if ($output === null) {
-                        echo '<script>showSuccessPopup("Script agendado com sucesso.");</script>';
-                    } else {
-                        echo '<script>alert("Erro ao agendar o script.");</script>';
-                    }
-                } else {
-                    echo '<script>alert("Por favor, preencha o horário de agendamento.");</script>';
-                }
+            // Lê os agendamentos atuais
+            $existingCrontab = shell_exec("crontab -l");
+            if ($existingCrontab === null) {
+                $existingCrontab = '';
             }
 
-            if (isset($_POST['delete_schedule'])) {
-                $output = shell_exec("crontab -l | grep -v '/opt/mk-auth/dados/bkp_telegram/script.sh' | crontab -");
-                if ($output === null) {
-                    echo '<script>showSuccessPopup("Agendamento excluído com sucesso.");</script>';
-                } else {
-                    echo '<script>alert("Erro ao excluir o agendamento.");</script>';
-                }
+            // Remove qualquer agendamento existente do mesmo script
+            $updatedCrontab = preg_replace(
+                "/^.*\/opt\/mk-auth\/dados\/bkp_telegram\/script.sh.*$/m", 
+                '', 
+                $existingCrontab
+            );
+
+            // Adiciona o novo agendamento
+            $cronJob = "$minute $hour * * * /opt/mk-auth/dados/bkp_telegram/script.sh >/dev/null 2>&1" . PHP_EOL;
+            $updatedCrontab .= $cronJob;
+
+            // Atualiza o crontab
+            $output = shell_exec("echo \"$updatedCrontab\" | crontab -");
+            if ($output === null) {
+                echo '<script>showSuccessPopup("Script agendado com sucesso.");</script>';
+            } else {
+                echo '<script>alert("Erro ao agendar o script.");</script>';
             }
+        } else {
+            echo '<script>alert("Formato de horário inválido. Use HH:mm.");</script>';
         }
+    } else {
+        echo '<script>alert("Por favor, preencha o horário de agendamento.");</script>';
+    }
+}
+
+if (isset($_POST['delete_schedule'])) {
+    // Lê os agendamentos atuais
+    $existingCrontab = shell_exec("crontab -l");
+    if ($existingCrontab === null) {
+        $existingCrontab = '';
+    }
+
+    // Remove o agendamento específico
+    $updatedCrontab = preg_replace(
+        "/^.*\/opt\/mk-auth\/dados\/bkp_telegram\/script.sh.*$/m", 
+        '', 
+        $existingCrontab
+    );
+
+    // Atualiza o crontab
+    $output = shell_exec("echo \"$updatedCrontab\" | crontab -");
+    if ($output === null) {
+        echo '<script>showSuccessPopup("Agendamento excluído com sucesso.");</script>';
+    } else {
+        echo '<script>alert("Erro ao excluir o agendamento.");</script>';
+    }
+  }
+}
         ?>
 
 <div class="form-container">
